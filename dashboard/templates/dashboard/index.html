@@ -1,0 +1,118 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+{% block title %}CryptoPulse | Real-Time Crypto Analytics{% endblock %}
+
+{% block content %}
+<header class="topbar">
+  <div class="brand"><span class="logo">₿</span><div><h1>CryptoPulse</h1><p>Real-time crypto analytics &amp; price forecasting</p></div></div>
+  <div class="status"><span id="pulse" class="pulse"></span><span id="updated">Connecting…</span></div>
+</header>
+
+<main class="container">
+  <div id="alert" class="alert" hidden></div>
+
+  <!-- Live ticker cards -->
+  <section id="ticker" class="ticker"></section>
+
+  <!-- Global controls -->
+  <section class="controls card">
+    <div class="group"><label>Coin</label><div id="coinTabs" class="tabs"></div></div>
+    <div class="group"><label>Range</label>
+      <div id="rangeTabs" class="tabs">
+        {% for label, days in ranges.items %}<button data-days="{{ days }}" class="{% if label == '3M' %}active{% endif %}">{{ label }}</button>{% endfor %}
+      </div>
+    </div>
+    <div class="group"><label>Overlays</label>
+      <label class="check"><input type="checkbox" id="toggleSma" checked> SMA 20/50</label>
+      <label class="check"><input type="checkbox" id="toggleBb"> Bollinger</label>
+    </div>
+  </section>
+
+  <!-- KPI row -->
+  <section id="kpis" class="kpis"></section>
+
+  <section class="grid">
+    <article class="card span-2"><h2>Live 24h price <small id="intradayTitle"></small></h2><div class="chart"><canvas id="intradayChart"></canvas></div></article>
+    <article class="card span-2"><h2>Price &amp; moving averages</h2><div class="chart tall"><canvas id="priceChart"></canvas></div></article>
+
+    <article class="card"><h2>Trading volume</h2><div class="chart"><canvas id="volumeChart"></canvas></div></article>
+    <article class="card"><h2>RSI (14)</h2><div class="chart"><canvas id="rsiChart"></canvas></div></article>
+
+    <article class="card span-2"><h2>Performance comparison <small>% change since start of range</small></h2><div class="chart tall"><canvas id="compareChart"></canvas></div></article>
+
+    <article class="card"><h2>Rolling 30d volatility <small>annualised %</small></h2><div class="chart"><canvas id="volChart"></canvas></div></article>
+    <article class="card"><h2>Drawdown <small>from peak %</small></h2><div class="chart"><canvas id="ddChart"></canvas></div></article>
+
+    <article class="card"><h2>Daily return distribution</h2><div class="chart"><canvas id="histChart"></canvas></div></article>
+    <article class="card">
+      <h2>Correlation matrix
+        <span class="mini-tabs" id="corrTabs"><button data-mode="returns" class="active">Returns</button><button data-mode="prices">Prices</button></span>
+      </h2>
+      <div id="heatmap" class="heatmap"></div>
+    </article>
+
+    <article class="card span-2"><h2>Risk &amp; return summary</h2><div class="table-wrap"><table id="statsTable"></table></div></article>
+  </section>
+
+  <!-- Pretrained model (user's notebook model) -->
+  <section class="card pm">
+    <h2>Your Random Forest model <small>pretrained .pkl · USDT &amp; BNB price/volume → BTC close (nowcast)</small></h2>
+    <div id="pmCards" class="forecast"><div class="muted">Loading live prediction…</div></div>
+    <div id="pmWarn" class="alert warn" hidden></div>
+    <div class="grid inner">
+      <div><h3>Live: actual vs predicted <span class="muted">(updates every 15s)</span></h3><div class="chart"><canvas id="pmLive"></canvas></div></div>
+      <div>
+        <h3>What-if predictor</h3>
+        <div class="pm-form">
+          <label>USDT close ($)<input id="pmUsdtClose" type="number" step="any" min="0"></label>
+          <label>USDT volume ($)<input id="pmUsdtVolume" type="number" step="any" min="0"></label>
+          <label>BNB close ($)<input id="pmBnbClose" type="number" step="any" min="0"></label>
+          <label>BNB volume ($)<input id="pmBnbVolume" type="number" step="any" min="0"></label>
+        </div>
+        <div class="pm-actions"><button id="pmUseLive" class="btn ghost">Use live values</button><button id="pmPredict" class="btn">Predict BTC close</button></div>
+        <div id="pmResult" class="pm-result"></div>
+      </div>
+    </div>
+    <h3>Backtest on history <span class="muted" id="pmMetrics"></span></h3>
+    <div class="chart tall"><canvas id="pmBacktest"></canvas></div>
+    <p class="muted small" id="pmNote"></p>
+    <details class="how">
+      <summary>How does this model work?</summary>
+      <ol>
+        <li><b>Inputs:</b> today's USDT close/volume and BNB close/volume (the 4 features picked by <code>SelectKBest</code> in your notebook).</li>
+        <li><b>Scaling:</b> each value is mapped to 0-1 using the training min/max (rebuilt from the notebook because the saved scaler was an identity).</li>
+        <li><b>Prediction:</b> 100 decision trees each vote a BTC price; the forest returns the average.</li>
+        <li><b>Limits:</b> it is a <i>nowcast</i>, not a next-day forecast, and trees cannot go beyond prices seen in training, so a new all-time high in BNB will make the estimate flat-line.</li>
+      </ol>
+    </details>
+  </section>
+
+  <!-- ML -->
+  <section class="card ml">
+    <h2>Bitcoin next-day forecast <small>10 ML models vs. naive baseline · chronological split</small></h2>
+    <div id="mlLoading" class="muted">Training models… (first load takes a few seconds)</div>
+    <div id="mlBody" hidden>
+      <div class="forecast" id="forecast"></div>
+      <div class="grid inner">
+        <div><h3>Actual vs. predicted (test window)</h3><div class="chart tall"><canvas id="mlLine"></canvas></div></div>
+        <div><h3>Model RMSE (lower is better)</h3><div class="chart tall"><canvas id="mlBar"></canvas></div></div>
+      </div>
+      <div class="grid inner">
+        <div class="span-2 table-wrap"><table id="mlTable"></table></div>
+        <div><h3>Top features (Random Forest)</h3><div class="chart"><canvas id="mlImp"></canvas></div></div>
+      </div>
+      <p class="muted small" id="mlNote"></p>
+    </div>
+  </section>
+
+  <footer>Data: Yahoo Finance via yfinance · Built with Django, pandas, scikit-learn &amp; Chart.js · Not financial advice.</footer>
+</main>
+
+{{ coins_json|json_script:"coins-data" }}
+<script id="cfg" type="application/json">{"refresh": {{ refresh_ms }}, "urls": {"live": "{% url 'api-live' %}", "intraday": "/api/intraday/", "indicators": "/api/indicators/", "compare": "{% url 'api-compare' %}", "predict": "{% url 'api-predict' %}", "pmLive": "{% url 'api-pm-live' %}", "pmPredict": "{% url 'api-pm-predict' %}", "pmBacktest": "{% url 'api-pm-backtest' %}"}}</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="{% static 'dashboard/js/dashboard.js' %}"></script>
+{% endblock %}

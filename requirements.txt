@@ -1,0 +1,8 @@
+Django>=5.0,<7.0
+pandas>=2.0
+numpy>=1.26
+# The notebook's .pkl files were saved with scikit-learn 1.7.2; keep the same minor version
+scikit-learn>=1.7.2,<1.8
+yfinance>=0.2.40
+whitenoise>=6.6
+gunicorn>=21.2

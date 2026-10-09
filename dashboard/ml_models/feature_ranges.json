@@ -1,0 +1,10 @@
+{
+  "source": "Notebook cell `data.describe()` - 1826 daily rows, 2021-10-09 to 2026-10-09 (min/max of the 4 features the model uses)",
+  "why": "scaler.pkl was fit on already-scaled data (min=0, max=1 => identity). The model was trained on inputs scaled by the ORIGINAL MinMaxScaler, so that scaling is rebuilt here from the dataset statistics.",
+  "features": {
+    "USDT_Close":  {"min": 0.995872,     "max": 1.00769},
+    "USDT_Volume": {"min": 9989859000.0, "max": 344398000000.0},
+    "BNB_Close":   {"min": 197.042999,   "max": 1310.214355},
+    "BNB_Volume":  {"min": 203846500.0,  "max": 11820390000.0}
+  }
+}
